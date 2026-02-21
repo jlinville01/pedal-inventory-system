@@ -1,14 +1,543 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect, useCallback } from "react";
 
-const Index = () => {
+// ─── Component Categories & Parts ─────────────────────────────────────────────
+const CATEGORIES: Record<string, string[]> = {
+  Resistors: ["1kΩ", "10kΩ", "100kΩ", "470Ω", "4.7kΩ"],
+  Capacitors: ["100nF", "10uF", "47uF", "220nF", "1uF"],
+  Transistors: ["2N3904", "2N3906", "BC108", "MPSA18"],
+  ICs: ["TL072", "NE5532", "LM308", "PT2399"],
+  Diodes: ["1N4001", "1N4148", "LED Red", "LED Green"],
+  Potentiometers: ["10kΩ A", "10kΩ B", "100kΩ A", "500kΩ A"],
+  Switches: ["DPDT", "3PDT", "SPST"],
+  Hardware: ["DC Jack", "Input Jack", "Output Jack", "Enclosure", "Knob"],
+};
+
+type ComponentItem = { name: string; category: string };
+
+const ALL_COMPONENTS: ComponentItem[] = Object.entries(CATEGORIES).flatMap(
+  ([category, parts]) => parts.map((name) => ({ name, category }))
+);
+
+function buildDefaultInventory(): Record<string, number> {
+  const inv: Record<string, number> = {};
+  ALL_COMPONENTS.forEach((c) => (inv[c.name] = 0));
+  return inv;
+}
+
+type Template = { name: string; components: Record<string, number> };
+type PageName =
+  | "home"
+  | "viewInventory"
+  | "updateInventory"
+  | "manualUpload"
+  | "placeOrder"
+  | "uploadTemplate"
+  | "shoppingList";
+
+const PAGE_TITLES: Record<PageName, string> = {
+  home: "Guitar Pedal Inventory System",
+  viewInventory: "View Inventory",
+  updateInventory: "Update Inventory",
+  manualUpload: "Manual Upload",
+  placeOrder: "Place Order",
+  uploadTemplate: "Upload Template",
+  shoppingList: "Shopping List",
+};
+
+// ─── Storage helpers ──────────────────────────────────────────────────────────
+const storage = (window as any).storage;
+
+async function loadStorage<T>(key: string, fallback: T): Promise<T> {
+  try {
+    const result = await storage?.get?.(key);
+    if (result?.value) return JSON.parse(result.value);
+    if (result && typeof result === "string") return JSON.parse(result);
+  } catch {}
+  return fallback;
+}
+
+async function saveStorage(key: string, value: any) {
+  try {
+    await storage?.set?.(key, JSON.stringify(value));
+  } catch {}
+}
+
+// ─── Reusable UI pieces ───────────────────────────────────────────────────────
+function PageHeader({ title, onBack }: { title: string; onBack?: () => void }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="mb-6 flex items-center gap-4">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
+        >
+          ← Back
+        </button>
+      )}
+      <h1 className="text-2xl font-bold font-mono text-primary">{title}</h1>
+    </div>
+  );
+}
+
+function SuccessMessage({ message }: { message: string }) {
+  return (
+    <div className="animate-fade-in mt-4 rounded-lg bg-success/20 border border-success/40 px-4 py-3 text-success font-medium">
+      ✓ {message}
+    </div>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+const Index = () => {
+  const [inventory, setInventory] = useState<Record<string, number>>(buildDefaultInventory);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [currentPage, setCurrentPage] = useState<PageName>("home");
+  const [loaded, setLoaded] = useState(false);
+
+  // Hydrate from storage
+  useEffect(() => {
+    (async () => {
+      const inv = await loadStorage("pedal-inventory", buildDefaultInventory());
+      const tmpl = await loadStorage<Template[]>("pedal-templates", []);
+      setInventory(inv);
+      setTemplates(tmpl);
+      setLoaded(true);
+    })();
+  }, []);
+
+  // Persist
+  useEffect(() => {
+    if (!loaded) return;
+    saveStorage("pedal-inventory", inventory);
+  }, [inventory, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveStorage("pedal-templates", templates);
+  }, [templates, loaded]);
+
+  const nav = useCallback((p: PageName) => setCurrentPage(p), []);
+
+  if (!loaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground font-mono animate-pulse">Loading inventory…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl">
+        {currentPage === "home" && <HomePage nav={nav} />}
+        {currentPage === "viewInventory" && <ViewInventoryPage inventory={inventory} nav={nav} />}
+        {currentPage === "updateInventory" && <UpdateInventoryPage nav={nav} />}
+        {currentPage === "manualUpload" && (
+          <ManualUploadPage inventory={inventory} setInventory={setInventory} nav={nav} />
+        )}
+        {currentPage === "placeOrder" && (
+          <PlaceOrderPage inventory={inventory} setInventory={setInventory} templates={templates} nav={nav} />
+        )}
+        {currentPage === "uploadTemplate" && (
+          <UploadTemplatePage templates={templates} setTemplates={setTemplates} nav={nav} />
+        )}
+        {currentPage === "shoppingList" && <ShoppingListPage inventory={inventory} nav={nav} />}
       </div>
     </div>
   );
 };
+
+// ─── Home Page ────────────────────────────────────────────────────────────────
+function HomePage({ nav }: { nav: (p: PageName) => void }) {
+  const buttons: { label: string; icon: string; target: PageName }[] = [
+    { label: "View Inventory", icon: "📋", target: "viewInventory" },
+    { label: "Update Inventory", icon: "🔧", target: "updateInventory" },
+    { label: "Upload Template", icon: "📄", target: "uploadTemplate" },
+    { label: "Shopping List", icon: "🛒", target: "shoppingList" },
+  ];
+
+  return (
+    <div className="flex flex-col items-center pt-12">
+      <div className="mb-2 text-5xl">🎸</div>
+      <h1 className="mb-2 text-3xl font-bold font-mono text-primary">
+        Guitar Pedal Inventory
+      </h1>
+      <p className="mb-10 text-muted-foreground">
+        Manage your components, templates & orders
+      </p>
+      <div className="grid w-full max-w-lg grid-cols-2 gap-4">
+        {buttons.map((b) => (
+          <button
+            key={b.target}
+            onClick={() => nav(b.target)}
+            className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-6 text-card-foreground transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+          >
+            <span className="text-3xl">{b.icon}</span>
+            <span className="font-semibold font-mono text-sm">{b.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── View Inventory ───────────────────────────────────────────────────────────
+function ViewInventoryPage({
+  inventory,
+  nav,
+}: {
+  inventory: Record<string, number>;
+  nav: (p: PageName) => void;
+}) {
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.viewInventory} onBack={() => nav("home")} />
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary">
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Component</th>
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Category</th>
+              <th className="px-4 py-3 text-right font-mono font-semibold text-secondary-foreground">Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ALL_COMPONENTS.map((c, i) => {
+              const qty = inventory[c.name] ?? 0;
+              const isLow = qty <= 0;
+              return (
+                <tr
+                  key={c.name}
+                  className={
+                    isLow
+                      ? "bg-out-of-stock text-destructive-foreground"
+                      : i % 2 === 0
+                      ? "bg-card"
+                      : "bg-table-stripe"
+                  }
+                >
+                  <td className="px-4 py-2 font-mono">{c.name}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{c.category}</td>
+                  <td className={`px-4 py-2 text-right font-mono font-bold ${isLow ? "text-destructive" : "text-primary"}`}>
+                    {qty}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Update Inventory ─────────────────────────────────────────────────────────
+function UpdateInventoryPage({ nav }: { nav: (p: PageName) => void }) {
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.updateInventory} onBack={() => nav("home")} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {[
+          { label: "Manual Upload", icon: "✏️", target: "manualUpload" as PageName },
+          { label: "Place Order", icon: "📦", target: "placeOrder" as PageName },
+        ].map((b) => (
+          <button
+            key={b.target}
+            onClick={() => nav(b.target)}
+            className="flex items-center gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+          >
+            <span className="text-2xl">{b.icon}</span>
+            <span className="font-semibold font-mono">{b.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Manual Upload ────────────────────────────────────────────────────────────
+function ManualUploadPage({
+  inventory,
+  setInventory,
+  nav,
+}: {
+  inventory: Record<string, number>;
+  setInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  nav: (p: PageName) => void;
+}) {
+  const [values, setValues] = useState<Record<string, number>>({ ...inventory });
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = () => {
+    setInventory({ ...values });
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.manualUpload} onBack={() => nav("updateInventory")} />
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary">
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Component</th>
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Category</th>
+              <th className="px-4 py-3 text-right font-mono font-semibold text-secondary-foreground">Current</th>
+              <th className="px-4 py-3 text-right font-mono font-semibold text-secondary-foreground">New Qty</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ALL_COMPONENTS.map((c, i) => (
+              <tr key={c.name} className={i % 2 === 0 ? "bg-card" : "bg-table-stripe"}>
+                <td className="px-4 py-2 font-mono">{c.name}</td>
+                <td className="px-4 py-2 text-muted-foreground">{c.category}</td>
+                <td className="px-4 py-2 text-right font-mono text-muted-foreground">{inventory[c.name]}</td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    value={values[c.name] ?? 0}
+                    onChange={(e) =>
+                      setValues((v) => ({ ...v, [c.name]: Math.max(0, parseInt(e.target.value) || 0) }))
+                    }
+                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        onClick={handleSubmit}
+        className="mt-4 rounded-lg bg-success px-6 py-3 font-semibold text-success-foreground transition-colors hover:bg-success/80"
+      >
+        Submit
+      </button>
+      {success && <SuccessMessage message="Inventory updated successfully!" />}
+    </div>
+  );
+}
+
+// ─── Place Order ──────────────────────────────────────────────────────────────
+function PlaceOrderPage({
+  inventory,
+  setInventory,
+  templates,
+  nav,
+}: {
+  inventory: Record<string, number>;
+  setInventory: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  templates: Template[];
+  nav: (p: PageName) => void;
+}) {
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = () => {
+    const newInv = { ...inventory };
+    const added: string[] = [];
+
+    templates.forEach((t, idx) => {
+      const qty = quantities[idx] || 0;
+      if (qty > 0) {
+        Object.entries(t.components).forEach(([comp, amount]) => {
+          newInv[comp] = (newInv[comp] || 0) + amount * qty;
+        });
+        added.push(`${qty}x ${t.name}`);
+      }
+    });
+
+    if (added.length === 0) {
+      setSuccess("No orders placed — set a quantity first.");
+      setTimeout(() => setSuccess(""), 3000);
+      return;
+    }
+
+    setInventory(newInv);
+    setSuccess(`Order placed: ${added.join(", ")}`);
+    setQuantities({});
+    setTimeout(() => setSuccess(""), 4000);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.placeOrder} onBack={() => nav("updateInventory")} />
+      {templates.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-8 text-center">
+          <p className="text-muted-foreground font-mono">No pedal templates found. Upload a template first.</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {templates.map((t, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
+              >
+                <span className="font-mono font-semibold text-foreground">{t.name}</span>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Qty:</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={quantities[idx] || 0}
+                    onChange={(e) =>
+                      setQuantities((q) => ({ ...q, [idx]: Math.max(0, parseInt(e.target.value) || 0) }))
+                    }
+                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={handleSubmit}
+            className="mt-4 rounded-lg bg-success px-6 py-3 font-semibold text-success-foreground transition-colors hover:bg-success/80"
+          >
+            Submit Order
+          </button>
+        </>
+      )}
+      {success && <SuccessMessage message={success} />}
+    </div>
+  );
+}
+
+// ─── Upload Template ──────────────────────────────────────────────────────────
+function UploadTemplatePage({
+  templates,
+  setTemplates,
+  nav,
+}: {
+  templates: Template[];
+  setTemplates: React.Dispatch<React.SetStateAction<Template[]>>;
+  nav: (p: PageName) => void;
+}) {
+  const [name, setName] = useState("");
+  const [components, setComponents] = useState<Record<string, number>>(() =>
+    Object.fromEntries(ALL_COMPONENTS.map((c) => [c.name, 0]))
+  );
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      setError("Please enter a pedal name.");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    const tmpl: Template = { name: name.trim(), components: { ...components } };
+    setTemplates((t) => [...t, tmpl]);
+    setName("");
+    setComponents(Object.fromEntries(ALL_COMPONENTS.map((c) => [c.name, 0])));
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.uploadTemplate} onBack={() => nav("home")} />
+      <div className="mb-4">
+        <label className="mb-1 block text-sm font-medium text-muted-foreground">Pedal Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Tube Screamer Clone"
+          className="w-full rounded-lg border border-input bg-background px-4 py-2 font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-secondary">
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Component</th>
+              <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Category</th>
+              <th className="px-4 py-3 text-right font-mono font-semibold text-secondary-foreground">Qty Needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ALL_COMPONENTS.map((c, i) => (
+              <tr key={c.name} className={i % 2 === 0 ? "bg-card" : "bg-table-stripe"}>
+                <td className="px-4 py-2 font-mono">{c.name}</td>
+                <td className="px-4 py-2 text-muted-foreground">{c.category}</td>
+                <td className="px-4 py-2 text-right">
+                  <input
+                    type="number"
+                    min={0}
+                    value={components[c.name]}
+                    onChange={(e) =>
+                      setComponents((v) => ({ ...v, [c.name]: Math.max(0, parseInt(e.target.value) || 0) }))
+                    }
+                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button
+        onClick={handleSubmit}
+        className="mt-4 rounded-lg bg-success px-6 py-3 font-semibold text-success-foreground transition-colors hover:bg-success/80"
+      >
+        Save Template
+      </button>
+      {error && (
+        <div className="animate-fade-in mt-4 rounded-lg bg-destructive/20 border border-destructive/40 px-4 py-3 text-destructive font-medium">
+          {error}
+        </div>
+      )}
+      {success && <SuccessMessage message={`Template "${templates[templates.length - 1]?.name}" saved!`} />}
+    </div>
+  );
+}
+
+// ─── Shopping List ────────────────────────────────────────────────────────────
+function ShoppingListPage({
+  inventory,
+  nav,
+}: {
+  inventory: Record<string, number>;
+  nav: (p: PageName) => void;
+}) {
+  const needed = ALL_COMPONENTS.filter((c) => (inventory[c.name] ?? 0) <= 0);
+
+  return (
+    <div className="animate-fade-in">
+      <PageHeader title={PAGE_TITLES.shoppingList} onBack={() => nav("home")} />
+      {needed.length === 0 ? (
+        <div className="rounded-lg border border-success/30 bg-success/10 p-8 text-center">
+          <p className="text-lg font-semibold text-success font-mono">✓ All components are in stock!</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary">
+                <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Component</th>
+                <th className="px-4 py-3 text-left font-mono font-semibold text-secondary-foreground">Category</th>
+                <th className="px-4 py-3 text-right font-mono font-semibold text-secondary-foreground">Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              {needed.map((c, i) => (
+                <tr key={c.name} className={i % 2 === 0 ? "bg-out-of-stock" : "bg-out-of-stock/70"}>
+                  <td className="px-4 py-2 font-mono">⚠️ {c.name}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{c.category}</td>
+                  <td className="px-4 py-2 text-right font-mono font-bold text-destructive">
+                    {inventory[c.name] ?? 0}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Index;
