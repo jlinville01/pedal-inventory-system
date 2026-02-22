@@ -28,16 +28,7 @@ function buildDefaultInventory(): Record<string, number> {
 
 type Template = { name: string; components: Record<string, number>; isDefault?: boolean };
 
-const DEFAULT_TEMPLATES: Template[] = [
-  {
-    name: "Shin's Music Dumbloid",
-    isDefault: true,
-    components: {
-      "22uF": 1,
-      "OPA2134": 1,
-    },
-  },
-];
+const DEFAULT_TEMPLATES: Template[] = [];
 type PageName =
   | "home"
   | "viewInventory"
