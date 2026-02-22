@@ -26,7 +26,18 @@ function buildDefaultInventory(): Record<string, number> {
   return inv;
 }
 
-type Template = { name: string; components: Record<string, number> };
+type Template = { name: string; components: Record<string, number>; isDefault?: boolean };
+
+const DEFAULT_TEMPLATES: Template[] = [
+  {
+    name: "Shin's Music Dumbloid",
+    isDefault: true,
+    components: {
+      "22uF": 1,
+      "OPA2134": 1,
+    },
+  },
+];
 type PageName =
   | "home"
   | "viewInventory"
@@ -100,14 +111,14 @@ const Index = () => {
   useEffect(() => {
     (async () => {
       const inv = await loadStorage("pedal-inventory", buildDefaultInventory());
-      const tmpl = await loadStorage<Template[]>("pedal-templates", []);
+      const userTmpl = await loadStorage<Template[]>("pedal-templates", []);
       setInventory(inv);
-      setTemplates(tmpl);
+      setTemplates([...DEFAULT_TEMPLATES, ...userTmpl]);
       setLoaded(true);
     })();
   }, []);
 
-  // Persist
+  // Persist (only user-created templates)
   useEffect(() => {
     if (!loaded) return;
     saveStorage("pedal-inventory", inventory);
@@ -115,7 +126,7 @@ const Index = () => {
 
   useEffect(() => {
     if (!loaded) return;
-    saveStorage("pedal-templates", templates);
+    saveStorage("pedal-templates", templates.filter((t) => !t.isDefault));
   }, [templates, loaded]);
 
   const nav = useCallback((p: PageName) => setCurrentPage(p), []);
