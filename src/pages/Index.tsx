@@ -11,7 +11,7 @@ const CATEGORIES: Record<string, string[]> = {
   Diodes: ["BA282", "BAT41", "1N34A", "1N914", "1N4001", "1N4148", "1N4742A", "1N5239B", "1N5817"],
   Potentiometers: ["A10K Pot", "A100K Pot", "A250K Pot", "A250K Dual Pot", "A500K Pot", "A1M Pot", "B1K Pot", "B10K Pot", "B25K Pot", "B50K Pot", "B100K Pot", "B100K Dual Pot", "B500K Pot", "C1K Pot", "C10K Pot", "C25K Pot", "C50K Pot", "W20K Pot", "50k Trim Pot", "100k Trim Pot"],
   Switches: ["DPDT", "3PDT", "SPST"],
-  Hardware: ["DC Jack", "Input Jack", "Output Jack", "Enclosure", "Knob"],
+  Hardware: ["DC Jack", "Input Jack", "Knob"],
 };
 
 type ComponentItem = { name: string; category: string };
