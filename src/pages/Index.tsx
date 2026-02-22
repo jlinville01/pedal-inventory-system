@@ -10,7 +10,7 @@ const CATEGORIES: Record<string, string[]> = {
   ICs: ["JRC4558D", "JRC4580D", "LM833N", "RC4558P", "TC1044SCPA", "TL072CP", "V3102D", "V3207D"],
   Diodes: ["BA282", "BAT41", "1N34A", "1N914", "1N4001", "1N4148", "1N4742A", "1N5239B", "1N5817"],
   Potentiometers: ["A10K Pot", "A100K Pot", "A250K Pot", "A250K Dual Pot", "A500K Pot", "A1M Pot", "B1K Pot", "B10K Pot", "B25K Pot", "B50K Pot", "B100K Pot", "B100K Dual Pot", "B500K Pot", "C1K Pot", "C10K Pot", "C25K Pot", "C50K Pot", "W20K Pot", "50k Trim Pot", "100k Trim Pot"],
-  Switches: ["DPDT", "3PDT", "SPST"],
+  Switches: ["DPDT", "3PDT", "SPDT Toggle Switch ON/ON"],
   Hardware: ["DC Jack", "Input Jack", "Black MXR knob", "Blue MXR knob", "Clear MXR knob", "Cream MXR knob", "Green MXR knob", "Grey MXR knob", "Light Blue MXR knob", "Orange MXR knob", "Purple MXR knob", "Red MXR knob", "White MXR knob", "Yellow MXR knob"],
 };
 
