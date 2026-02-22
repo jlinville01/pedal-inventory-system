@@ -345,7 +345,11 @@ function PlaceOrderPage({
   nav: (p: PageName) => void;
 }) {
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [success, setSuccess] = useState("");
+
+  const toggleExpand = (idx: number) =>
+    setExpanded((e) => ({ ...e, [idx]: !e[idx] }));
 
   const handleSubmit = () => {
     const newInv = { ...inventory };
@@ -383,26 +387,56 @@ function PlaceOrderPage({
       ) : (
         <>
           <div className="space-y-3">
-            {templates.map((t, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
-              >
-                <span className="font-mono font-semibold text-foreground">{t.name}</span>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground">Qty:</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={quantities[idx] || 0}
-                    onChange={(e) =>
-                      setQuantities((q) => ({ ...q, [idx]: Math.max(0, parseInt(e.target.value) || 0) }))
-                    }
-                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+            {templates.map((t, idx) => {
+              const isOpen = expanded[idx] ?? false;
+              const usedComponents = Object.entries(t.components).filter(([, qty]) => qty > 0);
+              return (
+                <div key={idx} className="rounded-lg border border-border bg-card overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <button
+                      onClick={() => toggleExpand(idx)}
+                      className="flex items-center gap-2 text-left font-mono font-semibold text-foreground hover:text-primary transition-colors"
+                    >
+                      <span className="text-xs text-muted-foreground transition-transform inline-block" style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                      {t.name}
+                      <span className="text-xs font-normal text-muted-foreground">({usedComponents.length} parts)</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-muted-foreground">Qty:</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={quantities[idx] || 0}
+                        onChange={(e) =>
+                          setQuantities((q) => ({ ...q, [idx]: Math.max(0, parseInt(e.target.value) || 0) }))
+                        }
+                        className="w-20 rounded-md border border-input bg-background px-2 py-1 text-right font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="border-t border-border">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-secondary">
+                            <th className="px-4 py-2 text-left font-mono font-semibold text-secondary-foreground">Component</th>
+                            <th className="px-4 py-2 text-right font-mono font-semibold text-secondary-foreground">Qty Needed</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {usedComponents.map(([comp, qty], i) => (
+                            <tr key={comp} className={i % 2 === 0 ? "bg-card" : "bg-table-stripe"}>
+                              <td className="px-4 py-1.5 font-mono">{comp}</td>
+                              <td className="px-4 py-1.5 text-right font-mono font-bold text-primary">{qty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button
             onClick={handleSubmit}
