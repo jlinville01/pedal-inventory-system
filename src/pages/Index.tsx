@@ -8,7 +8,7 @@ const CATEGORIES: Record<string, string[]> = {
   "Electrolytic Capacitors": ["1uF", "2.2uF", "4.7uF", "10uF", "47uF", "100uF", "220uF"],
   Transistors: ["2N3904", "2N3906", "BC108", "MPSA18"],
   ICs: ["TL072", "NE5532", "LM308", "PT2399"],
-  Diodes: ["1N4001", "1N4148", "LED Red", "LED Green"],
+  Diodes: ["BA282", "BAT41", "1N34A", "1N914", "1N4001", "1N4148", "1N4742A", "1N5239B", "1N5817"],
   Potentiometers: ["10kΩ A", "10kΩ B", "100kΩ A", "500kΩ A"],
   Switches: ["DPDT", "3PDT", "SPST"],
   Hardware: ["DC Jack", "Input Jack", "Output Jack", "Enclosure", "Knob"],
