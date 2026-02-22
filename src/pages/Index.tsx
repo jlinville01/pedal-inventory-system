@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 // ─── Component Categories & Parts ─────────────────────────────────────────────
 const CATEGORIES: Record<string, string[]> = {
-  Resistors: ["1kΩ", "10kΩ", "100kΩ", "470Ω", "4.7kΩ"],
+  Resistors: ["100R", "220R", "470R", "560R", "820R", "1K", "1.2K", "1K5", "1K8", "2K", "2.2K", "2.7K", "3.3K", "3K9", "4K7", "5K1", "5K6", "6.8K", "10K", "12K", "15K", "20K", "22K", "27K", "33K", "39K", "47K", "68K", "100K", "130K", "150K", "180K", "220K", "330K", "392K", "422K", "470K", "1M", "2M", "2.2M", "10M"],
   Capacitors: ["100nF", "10uF", "47uF", "220nF", "1uF"],
   Transistors: ["2N3904", "2N3906", "BC108", "MPSA18"],
   ICs: ["TL072", "NE5532", "LM308", "PT2399"],
